@@ -13,41 +13,64 @@ define(function () {
          * @param token - token type
          */
         var split_text = function (text, max, index, token) {
-            // if the text doesn't exceed the maximum number of characters
-            // then just create a line with the entire text and return
-            if (text.length <= max) {
-                return [h.create_line({
+            var  removedSections = []
+            var filteredText = text.replace(/\|\/?col.*?\|/g, function(match, offset, originalText) {
+                removedSections.push({
+                    content: match,
+                    startIndex: offset,
+                    length: match.length
+                });
+                return "";
+            });
+        
+            var lines = [];
+        
+            if (filteredText.length <= max) {
+                lines.push(h.create_line({
                     type: token.type,
                     token: token,
                     text: text,
                     start: index,
                     end: index + text.length - 1
-                })];
-            }
-
-            // otherwise - find the nearest whitespace character
-            // the text will be split into lines at this character
-            var pointer = text.substr(0, max + 1).lastIndexOf(" ");
-
-            // ...unless there's no whitespace (breakPointFound=false)
-            // it may happen with extremely long lines
-            var breakPointFound;
-            if (pointer === -1) {
-                pointer = max - 1;
-                breakPointFound = false;
+                }));
             } else {
-                breakPointFound = true;
-            }
+                var pointer = filteredText.substr(0, max + 1).lastIndexOf(" ");
+                var breakPointFound;
+        
+                if (pointer === -1) {
+                    pointer = max - 1;
+                    breakPointFound = false;
+                } else {
+                    breakPointFound = true;
+                }
+        
+                var skipWhiteSpaceIfNeeded = breakPointFound ? 1 : 0;
+        
+                var adjustedPointer = adjustPointerForOriginalText(pointer, removedSections);
 
-            // split the text and continue splitting the rest
-            var skipWhiteSpaceIfNeeded = breakPointFound ? 1 : 0;
-            return [h.create_line({
-                type: token.type,
-                token: token,
-                text: text.substr(0, pointer),
-                start: index,
-                end: index + pointer
-            })].concat(split_text(text.substr(pointer + skipWhiteSpaceIfNeeded), max, index + pointer, token));
+                lines.push(h.create_line({
+                    type: token.type,
+                    token: token,
+                    text: text.substr(0, adjustedPointer),
+                    start: index,
+                    end: index + adjustedPointer
+                }));
+
+                lines = lines.concat(split_text(text.substr(adjustedPointer + skipWhiteSpaceIfNeeded), max, index + adjustedPointer, token));
+            }
+            return lines;
+        
+            function adjustPointerForOriginalText(pointer, removedSections) {
+                var adjustment = 0;
+                for (var i = 0; i < removedSections.length; i++) {
+                    if (removedSections[i].startIndex <= pointer+adjustment) {
+                        adjustment += removedSections[i].length;
+                    } else {
+                        break;
+                    }
+                }
+                return pointer + adjustment;
+            }
         };
 
         var split_token = function (token, max) {

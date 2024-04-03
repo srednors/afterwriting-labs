@@ -108,7 +108,7 @@ define('utils/pdfmaker', function(require) {
                 text = text.replace(/\[\[/g, '*[[').replace(/\]\]/g, ']]*');
             }
 
-            var split_for_fromatting = text.split(/(\\\*)|(\*{1,3})|(\\?_)|(\[\[)|(\]\])/g).filter(function(a) {
+            var split_for_fromatting = text.split(/(\\\*)|(\*{1,3})|(\\?_)|(\[\[)|(\]\])|(\|\/?col.*?\|)/g).filter(function(a) {
                 return a;
             });
 
@@ -130,6 +130,13 @@ define('utils/pdfmaker', function(require) {
                 } else if (elem === ']]') {
                     doc.format_state.override_color = null;
                     doc.fill('black');
+                } else if (elem.startsWith('|col') && elem.endsWith('|')) {
+                    const col = elem.slice(4,-1).trim()
+                    if (col.length) {
+                        doc.fill(col)
+                    }
+                } else if (elem === '|/col|') {
+                    doc.fill('black')
                 } else {
                     if (doc.format_state.bold && doc.format_state.italic) {
                         doc.font('ScriptBoldOblique');
@@ -204,7 +211,7 @@ define('utils/pdfmaker', function(require) {
 
         // helper
         var center = function(txt, y) {
-            var txt_length = txt.replace(/\*/g, '').replace(/_/g, '').length;
+            var txt_length = txt.replace(/\*/g, '').replace(/_/g, '').replace(/\|\/?col.*?\|/g, '').length;
             var feed = (print.page_width - txt_length * print.font_width) / 2;
             doc.text(txt, feed, y);
         };
